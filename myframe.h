@@ -14,7 +14,7 @@ public:
     explicit MyFrame(QWidget *parent = nullptr);
 
 protected:
-    virtual void paintEvent(QPaintEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
 };
 
 #endif // MYFRAME_H
