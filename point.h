@@ -1,15 +1,14 @@
 #ifndef POINT_H
 #define POINT_H
 
-#include <QString>
-
-class Point
-{
-public:
-    QString name;
+class Point {
+private:
     double x, y;
 
-    Point(QString name, double x, double y);
+public:
+    Point(double x = 0, double y = 0) : x(x), y(y) {}
+    double getX() const { return x; }
+    double getY() const { return y; }
 };
 
-#endif // POINT_H
+#endif

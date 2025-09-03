@@ -6,15 +6,18 @@
 #include "df.h"
 
 class MyFrame : public QFrame {
+    Q_OBJECT
+
 private:
-    DF df;
-    double worldWidth, worldHeight;
+    DisplayFile df;
 
 public:
     explicit MyFrame(QWidget *parent = nullptr);
 
+    void addObject(Object* obj);
+
 protected:
-    void paintEvent(QPaintEvent *event) override;
+    void paintEvent(QPaintEvent *) override;
 };
 
-#endif // MYFRAME_H
+#endif

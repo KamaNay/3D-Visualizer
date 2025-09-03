@@ -1,21 +1,27 @@
 #ifndef DF_H
 #define DF_H
 
-#include <QVector>
-#include "point.h"
-#include "line.h"
-#include "polygon.h"
+#include <vector>
+#include "object.h"
 
-class DF
-{
+class DisplayFile {
+private:
+    std::vector<Object*> objects;
+
 public:
-    QVector<Point> points;
-    QVector<Line> lines;
-    QVector<Polygon> polygons;
+    void addObject(Object* obj) {
+        objects.push_back(obj);
+    }
 
-    void addPoint(Point p);
-    void addLine(Line l);
-    void addPolygon(Polygon p);
+    const std::vector<Object*>& getObjects() const {
+        return objects;
+    }
+
+    void drawAll(QPainter *painter) {
+        for (auto obj : objects) {
+            obj->draw(painter);
+        }
+    }
 };
 
-#endif // DF_H
+#endif

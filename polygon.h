@@ -1,15 +1,22 @@
 #ifndef POLYGON_H
 #define POLYGON_H
 
-#include <QVector>
-#include "point.h"
+#include "object.h"
+#include <QPolygon>
 
-class Polygon {
+class Polygon : public Object {
 public:
-    QString name;
-    QVector<Point> points;
+    Polygon(QString n, const std::vector<Point> &pts) : Object(n, POLYGON) {
+        points = pts;
+    }
 
-    Polygon(QString name, QVector<Point> points);
+    void draw(QPainter *painter) override {
+        QPolygon poly;
+        for (auto &p : points) {
+            poly << QPoint(p.getX(), p.getY());
+        }
+        painter->drawPolygon(poly);
+    }
 };
 
-#endif // POLYGON_H
+#endif
