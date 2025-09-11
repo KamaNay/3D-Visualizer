@@ -32,6 +32,7 @@ public:
 
     virtual void draw(QPainter *painter) = 0;
 
+    // Calcula o centro geométrico do objeto
     Point getCenter() const {
         double sumX = 0, sumY = 0;
         for (auto &p : points) {

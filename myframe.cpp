@@ -7,12 +7,14 @@ void MyFrame::addObject(Object* obj) {
     update();
 }
 
+// Desenha todos os objetos do DisplayFile
 void MyFrame::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.setPen(QPen(Qt::red, 5));
     df.drawAll(&painter);
 }
 
+// Detecta clique do mouse para selecionar objetos
 void MyFrame::mousePressEvent(QMouseEvent *event) {
     QPoint click = event->pos();
     const int tol = 5; // tolerância em pixels para ponto/linha
@@ -36,6 +38,7 @@ void MyFrame::mousePressEvent(QMouseEvent *event) {
             double x1 = p1.getX(), y1 = p1.getY();
             double x2 = p2.getX(), y2 = p2.getY();
 
+            // Projeção do ponto no segmento
             double A = x0 - x1;
             double B = y0 - y1;
             double C = x2 - x1;
@@ -71,6 +74,7 @@ void MyFrame::mousePressEvent(QMouseEvent *event) {
             }
         }
 
+        // Marca como selecionado
         if (selected) {
             for (auto o : df.getObjects()) o->setSelected(false);
             obj->setSelected(true);

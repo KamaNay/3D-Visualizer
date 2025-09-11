@@ -10,6 +10,7 @@ public:
         points = pts;
     }
 
+    // Desenha um poligono na tela
     void draw(QPainter *painter) override {
         QPen pen = painter->pen();
         if (isSelected())

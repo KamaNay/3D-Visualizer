@@ -10,6 +10,7 @@ public:
         points.push_back(p2);
     }
 
+    // Desenha a linha na tela
     void draw(QPainter *painter) override {
         QPen pen = painter->pen();
         if (isSelected())

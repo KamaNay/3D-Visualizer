@@ -1,6 +1,7 @@
 #ifndef POINT_H
 #define POINT_H
 
+// Representa um ponto 2D
 class Point {
 private:
     double x, y;

@@ -3,6 +3,7 @@
 
 #include "object.h"
 
+// Representa um ponto gráfico
 class PointObj : public Object {
 public:
     PointObj(QString n, double x, double y) : Object(n, POINT) {

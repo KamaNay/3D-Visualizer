@@ -30,11 +30,12 @@ MainWindow::MainWindow(QWidget *parent)
     };
     Object* poly2 = new Polygon("Poly2", pts2);
 
+    // Configurações visuais do frame
     ui->frame->setFixedSize(400, 300);
     ui->frame->setStyleSheet("background-color: white;");
 
 
-    // Adiciona no frame (interface)
+    // Adiciona no frame
     ui->frame->addObject(l);
     ui->frame->addObject(poly);
     ui->frame->addObject(poly2);
@@ -45,9 +46,11 @@ MainWindow::~MainWindow() {
     delete ui;
 }
 
+// Captura teclas para mover, escalar ou rotacionar objetos selecionados
 void MainWindow::keyPressEvent(QKeyEvent *event) {
-    // pega objeto selecionado
     Object* selected = nullptr;
+
+    // Procura o objeto selecionado
     for (auto obj : ui->frame->getDisplayFile().getObjects()) {
         if (obj->isSelected()) {
             selected = obj;
@@ -57,6 +60,7 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
 
     if (!selected) return;
 
+    // Aplica a transformação de acordo com a tecla pressionada
     switch (event->key()) {
     case Qt::Key_Left:
         selected->translate(-10, 0);
