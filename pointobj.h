@@ -10,6 +10,12 @@ public:
     }
 
     void draw(QPainter *painter) override {
+        QPen pen = painter->pen();
+        if (isSelected())
+            painter->setPen(QPen(Qt::blue, 3));
+        else
+            painter->setPen(QPen(Qt::red, 2));
+
         painter->drawPoint(points[0].getX(), points[0].getY());
     }
 };

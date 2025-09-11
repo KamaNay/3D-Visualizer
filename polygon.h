@@ -11,6 +11,12 @@ public:
     }
 
     void draw(QPainter *painter) override {
+        QPen pen = painter->pen();
+        if (isSelected())
+            painter->setPen(QPen(Qt::blue, 3));
+        else
+            painter->setPen(QPen(Qt::red, 2));
+
         QPolygon poly;
         for (auto &p : points) {
             poly << QPoint(p.getX(), p.getY());
