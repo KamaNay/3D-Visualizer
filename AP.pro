@@ -7,5 +7,7 @@ SOURCES += mainwindow.cpp myframe.cpp \
 HEADERS += mainwindow.h point.h line.h polygon.h myframe.h \
     df.h \
     object.h \
-    pointobj.h
+    pointobj.h \
+    viewport.h \
+    window.h
 FORMS += mainwindow.ui
