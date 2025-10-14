@@ -1,56 +1,33 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-#include "line.h"
-#include "polygon.h"
+#include "house.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , ui(new Ui::MainWindow) {
+    , ui(new Ui::MainWindow)
+{
     ui->setupUi(this);
 
-    //Linha
-    Object* l = new Line("L1", Point(150, 100), Point(300, 100));
+    // faz o frame ser o widget central da MainWindow (ocupa todo o espaço)
+    // ⚠️ Certifique-se de que você não adicionou o frame em outro layout no .ui
+    setCentralWidget(ui->frame);
+    ui->frame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    ui->frame->setMinimumSize(400, 300); // opcional
 
-    //Triangulo
-    std::vector<Point> pts = {
-        Point(220, 200),
-        Point(250, 240),
-        Point(220, 280)
-    };
-    Object* poly = new Polygon("Poly1", pts);
-
-    //Pentagono
-    std::vector<Point> pts2 = {
-        Point(150, 150),
-        Point(193, 185),
-        Point(181, 241),
-        Point(121, 241),
-        Point(103, 185)
-    };
-    Object* poly2 = new Polygon("Poly2", pts2);
-
-    // Configurações visuais do frame
-    ui->frame->setFixedSize(600, 400);
-    ui->frame->setStyleSheet("background-color: white;");
-
-
-    // Adiciona no frame
-    ui->frame->addObject(l);
-    ui->frame->addObject(poly);
-    ui->frame->addObject(poly2);
-
+    // Adiciona casas (mantenha como antes)
+    ui->frame->addObject(new House("Casa1", 100, 250, 80, 80));
+    ui->frame->addObject(new House("Casa2", 200, 250, 80, 80));
+    ui->frame->addObject(new House("Casa3", 300, 250, 80, 80));
 }
 
 MainWindow::~MainWindow() {
     delete ui;
 }
 
-// Captura teclas para mover, escalar ou rotacionar objetos selecionados
 void MainWindow::keyPressEvent(QKeyEvent *event) {
     Object* selected = nullptr;
 
-    // Procura o objeto selecionado
     for (auto obj : ui->frame->getDisplayFile().getObjects()) {
         if (obj->isSelected()) {
             selected = obj;
@@ -58,7 +35,6 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
         }
     }
 
-    // --- atalhos para objetos ---
     if (selected) {
         switch (event->key()) {
         case Qt::Key_Left:  selected->translate(-10, 0); break;
@@ -88,21 +64,18 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
         }
     }
 
-    // --- atalhos para window ---
     auto& window = ui->frame->getWindow();
-
     switch (event->key()) {
-    case Qt::Key_W:  window.translate(0, -10); break;  // mover para cima
-    case Qt::Key_S:  window.translate(0, 10);  break;  // mover para baixo
-    case Qt::Key_A:  window.translate(-10, 0); break;  // mover para esquerda
-    case Qt::Key_D:  window.translate(10, 0);  break;  // mover para direita
-    case Qt::Key_Z:  window.zoom(0.9);         break; // zoom in
-    case Qt::Key_X:  window.zoom(1.1);         break; // zoom out
-    case Qt::Key_C:  window.rotate(-5);        break;  // rotaciona anti-horário
-    case Qt::Key_V:  window.rotate(5);         break;  // rotaciona horário
+    case Qt::Key_W:  window.translate(0, -10); break;
+    case Qt::Key_S:  window.translate(0, 10);  break;
+    case Qt::Key_A:  window.translate(-10, 0); break;
+    case Qt::Key_D:  window.translate(10, 0);  break;
+    case Qt::Key_Z:  window.zoom(0.9);         break;
+    case Qt::Key_X:  window.zoom(1.1);         break;
+    case Qt::Key_C:  window.rotate(-5);        break;
+    case Qt::Key_V:  window.rotate(5);         break;
     default: break;
     }
 
     ui->frame->update();
 }
-

@@ -6,6 +6,7 @@ SOURCES += mainwindow.cpp myframe.cpp \
     main.cpp
 HEADERS += mainwindow.h point.h line.h polygon.h myframe.h \
     df.h \
+    house.h \
     object.h \
     pointobj.h \
     viewport.h \
