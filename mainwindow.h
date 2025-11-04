@@ -17,6 +17,7 @@ public:
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
+    void loadOBJModel(const QString &filePath);
 
 private:
     Ui::MainWindow *ui;

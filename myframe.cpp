@@ -2,6 +2,7 @@
 #include "window.h"
 #include "viewport.h"
 #include "house.h"
+#include "object3D.h"
 #include <cmath>
 #include <QSizePolicy>
 
@@ -64,7 +65,7 @@ static bool clipLineCohenSutherland(Point &p1, Point &p2, double xmin, double xm
 
 // ---- MyFrame ----
 MyFrame::MyFrame(QWidget *parent) : QFrame(parent) {
-    window = new Window(0, 400, 0, 300);
+    window = new Window(-500, 500, -500, 500);
     viewport = new Viewport(0, width(), 0, height());
 
     setAutoFillBackground(true);
@@ -95,6 +96,28 @@ void MyFrame::paintEvent(QPaintEvent *) {
     painter.setClipRect(vLeft, vTop, vWidth, vHeight);
 
     for (auto obj : df.getObjects()) {
+
+        auto obj3D = dynamic_cast<Object3D*>(obj);
+        if (obj3D) {
+            auto polys = obj3D->projectOrthographic();
+            QColor edgeColor = obj->isSelected() ? Qt::blue : Qt::darkGray;
+            QColor fillColor = obj->isSelected() ? QColor(173, 216, 230, 100) : QColor(200, 200, 200, 80);
+
+            for (auto &polyPts : polys) {
+                QPolygonF poly;
+                for (auto &p : polyPts) {
+                    Point pn = window->worldToNormalized(p);
+                    Point pv = viewport->normalizedToViewport(pn);
+                    poly << QPointF(pv.getX(), pv.getY());
+                }
+
+                painter.setPen(QPen(edgeColor, obj->isSelected() ? 2 : 1));
+                painter.setBrush(fillColor);
+                painter.drawPolygon(poly);
+            }
+            continue;
+        }
+
         auto house = dynamic_cast<House*>(obj);
         if (house) {
             auto pts = house->getPoints();
@@ -219,6 +242,7 @@ void MyFrame::paintEvent(QPaintEvent *) {
     painter.restore();
     painter.setPen(QPen(Qt::black,1,Qt::DashLine));
     painter.drawRect(vLeft, vTop, vWidth, vHeight);
+
 }
 
 // ---- Mouse Selection ----
@@ -226,6 +250,7 @@ void MyFrame::mousePressEvent(QMouseEvent *event) {
     QPoint click = event->pos();
     const int tol = 5;
 
+    // Converte clique para coordenadas normalizadas e depois mundo
     double nx = (double)(click.x() - viewport->getXMin()) /
                     (viewport->getXMax() - viewport->getXMin()) * 2.0 - 1.0;
     double ny = 1.0 - (double)(click.y() - viewport->getYMin()) /
@@ -233,47 +258,77 @@ void MyFrame::mousePressEvent(QMouseEvent *event) {
 
     double wx = window->getXMin() + (nx + 1.0) / 2.0 * (window->getXMax() - window->getXMin());
     double wy = window->getYMin() + (ny + 1.0) / 2.0 * (window->getYMax() - window->getYMin());
-
     QPointF clickWorld(wx, wy);
 
     for (auto obj : df.getObjects()) {
         bool selected = false;
-        auto pts = obj->getPoints();
 
-        if (obj->getType() == POINT) {
-            Point p = pts[0];
-            if (std::abs(clickWorld.x() - p.getX()) <= tol &&
-                std::abs(clickWorld.y() - p.getY()) <= tol)
-                selected = true;
-        }
-        else if (obj->getType() == LINE) {
-            Point p1 = pts[0], p2 = pts[1];
-            double x0 = clickWorld.x(), y0 = clickWorld.y();
-            double x1 = p1.getX(), y1 = p1.getY();
-            double x2 = p2.getX(), y2 = p2.getY();
-
-            double A = x0 - x1, B = y0 - y1;
-            double C = x2 - x1, D = y2 - y1;
-            double dot = A*C + B*D;
-            double len_sq = C*C + D*D;
-            double param = (len_sq != 0) ? dot / len_sq : -1;
-
-            double xx, yy;
-            if (param < 0)      { xx = x1; yy = y1; }
-            else if (param > 1) { xx = x2; yy = y2; }
-            else                { xx = x1 + param*C; yy = y1 + param*D; }
-
-            double dist = std::hypot(x0 - xx, y0 - yy);
-            if (dist <= tol) selected = true;
-        }
-        else if (obj->getType() == POLYGON) {
-            QPolygonF poly;
-            for (auto &p : pts)
-                poly << QPointF(p.getX(), p.getY());
-            if (poly.containsPoint(clickWorld, Qt::OddEvenFill))
-                selected = true;
+        // --- Caso Object3D ---
+        if (auto obj3D = dynamic_cast<Object3D*>(obj)) {
+            auto projected = obj3D->projectOrthographic();
+            for (auto &face : projected) {
+                QPolygonF poly;
+                for (auto &p : face) {
+                    // converte ponto do modelo para coordenadas do window
+                    Point pn = window->worldToNormalized(p);
+                    Point pv = viewport->normalizedToViewport(pn);
+                    // reconverte viewport -> mundo (igual ao cliqueWorld)
+                    double nxx = (pv.getX() - viewport->getXMin()) /
+                                     (viewport->getXMax() - viewport->getXMin()) * 2.0 - 1.0;
+                    double nyy = 1.0 - (pv.getY() - viewport->getYMin()) /
+                                           (viewport->getYMax() - viewport->getYMin()) * 2.0;
+                    double wxp = window->getXMin() + (nxx + 1.0) / 2.0 *
+                                                         (window->getXMax() - window->getXMin());
+                    double wyp = window->getYMin() + (nyy + 1.0) / 2.0 *
+                                                         (window->getYMax() - window->getYMin());
+                    poly << QPointF(wxp, wyp);
+                }
+                if (poly.containsPoint(clickWorld, Qt::OddEvenFill)) {
+                    selected = true;
+                    break;
+                }
+            }
         }
 
+        // --- Caso 2D padrão ---
+        else {
+            auto pts = obj->getPoints();
+            if (obj->getType() == POINT) {
+                Point p = pts[0];
+                if (std::abs(clickWorld.x() - p.getX()) <= tol &&
+                    std::abs(clickWorld.y() - p.getY()) <= tol)
+                    selected = true;
+            }
+            else if (obj->getType() == LINE) {
+                Point p1 = pts[0], p2 = pts[1];
+                double x0 = clickWorld.x(), y0 = clickWorld.y();
+                double x1 = p1.getX(), y1 = p1.getY();
+                double x2 = p2.getX(), y2 = p2.getY();
+
+                double A = x0 - x1, B = y0 - y1;
+                double C = x2 - x1, D = y2 - y1;
+                double dot = A*C + B*D;
+                double len_sq = C*C + D*D;
+                double param = (len_sq != 0) ? dot / len_sq : -1;
+
+                double xx, yy;
+                if (param < 0)      { xx = x1; yy = y1; }
+                else if (param > 1) { xx = x2; yy = y2; }
+                else                { xx = x1 + param*C; yy = y1 + param*D; }
+
+                double dist = std::hypot(x0 - xx, y0 - yy);
+                if (dist <= tol) selected = true;
+            }
+            else if (obj->getType() == POLYGON) {
+                QPolygonF poly;
+                for (auto &p : pts)
+                    poly << QPointF(p.getX(), p.getY());
+                if (poly.containsPoint(clickWorld, Qt::OddEvenFill))
+                    selected = true;
+            }
+        }
+
+        // Seleciona o objeto e desmarca os outros
         if (selected) {
             for (auto o : df.getObjects()) o->setSelected(false);
             obj->setSelected(true);
@@ -283,3 +338,4 @@ void MyFrame::mousePressEvent(QMouseEvent *event) {
 
     update();
 }
+

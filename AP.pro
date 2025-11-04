@@ -8,6 +8,8 @@ HEADERS += mainwindow.h point.h line.h polygon.h myframe.h \
     df.h \
     house.h \
     object.h \
+    object3D.h \
+    objreader.h \
     pointobj.h \
     viewport.h \
     window.h

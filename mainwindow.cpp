@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-
+#include "objreader.h"
+#include "object3D.h"
 #include "house.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -10,15 +11,16 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     // faz o frame ser o widget central da MainWindow (ocupa todo o espaço)
-    // ⚠️ Certifique-se de que você não adicionou o frame em outro layout no .ui
     setCentralWidget(ui->frame);
     ui->frame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    ui->frame->setMinimumSize(400, 300); // opcional
+    ui->frame->setMinimumSize(400, 300);
 
     // Adiciona casas (mantenha como antes)
     ui->frame->addObject(new House("Casa1", 100, 250, 80, 80));
     ui->frame->addObject(new House("Casa2", 200, 250, 80, 80));
     ui->frame->addObject(new House("Casa3", 300, 250, 80, 80));
+
+    loadOBJModel("C:/Users/andre/Documents/UTFPR/CG/AP/Charizard.obj");
 }
 
 MainWindow::~MainWindow() {
@@ -64,6 +66,29 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
         }
     }
 
+    if (auto obj3D = dynamic_cast<Object3D*>(selected)) {
+        Point3D center3D(0, 0, 0); // você pode depois calcular o centro real do modelo se quiser
+
+        switch (event->key()) {
+        case Qt::Key_I: obj3D->rotateX3D(-10); break;  // Rotaciona para cima
+        case Qt::Key_K: obj3D->rotateX3D(10);  break;  // Rotaciona para baixo
+        case Qt::Key_J: obj3D->rotateY3D(-10); break;  // Rotaciona para esquerda
+        case Qt::Key_L: obj3D->rotateY3D(10);  break;  // Rotaciona para direita
+        case Qt::Key_U: obj3D->rotateZ3D(-10); break;  // Roll antihorário
+        case Qt::Key_O: obj3D->rotateZ3D(10);  break;  // Roll horário
+        case Qt::Key_Up: obj3D->translate3D(0, 10, 0); break;   // Move para cima
+        case Qt::Key_Down: obj3D->translate3D(0, -10, 0); break;  // Move para baixo
+        case Qt::Key_Left: obj3D->translate3D(-10, 0, 0); break;  // Esquerda
+        case Qt::Key_Right: obj3D->translate3D(10, 0, 0); break;   // Direita
+        case Qt::Key_Plus:
+            obj3D->scale3D(1.1, 1.1, 1.1, center3D);
+            break;
+        case Qt::Key_Minus:
+            obj3D->scale3D(0.9, 0.9, 0.9, center3D);
+            break;
+        }
+    }
+
     auto& window = ui->frame->getWindow();
     switch (event->key()) {
     case Qt::Key_W:  window.translate(0, -10); break;
@@ -78,4 +103,12 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
     }
 
     ui->frame->update();
+}
+
+void MainWindow::loadOBJModel(const QString &filePath) {
+    Object3D* model = OBJReader::loadOBJ(filePath);
+    if (model) {
+        ui->frame->addObject(model);
+        ui->frame->update();
+    }
 }
