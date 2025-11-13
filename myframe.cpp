@@ -99,7 +99,10 @@ void MyFrame::paintEvent(QPaintEvent *) {
 
         auto obj3D = dynamic_cast<Object3D*>(obj);
         if (obj3D) {
-            auto polys = obj3D->projectOrthographic();
+            auto polys = perspectiveMode
+                             ? obj3D->projectPerspective(600.0)
+                             : obj3D->projectOrthographic();
+
             QColor edgeColor = obj->isSelected() ? Qt::blue : Qt::darkGray;
             QColor fillColor = obj->isSelected() ? QColor(173, 216, 230, 100) : QColor(200, 200, 200, 80);
 

@@ -15,8 +15,8 @@ private:
     DisplayFile df;
     Window* window;
     Viewport* viewport;
+    bool perspectiveMode = true;
 
-public:
 public:
     DisplayFile& getDisplayFile() { return df; }
     Window& getWindow() { return *window; }
@@ -25,6 +25,8 @@ public:
     explicit MyFrame(QWidget *parent = nullptr);
 
     void addObject(Object* obj);
+
+    void setPerspectiveMode(bool mode) { perspectiveMode = mode; }
 
 protected:
     void paintEvent(QPaintEvent *) override;

@@ -21,6 +21,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->frame->addObject(new House("Casa3", 300, 250, 80, 80));
 
     loadOBJModel("C:/Users/andre/Documents/UTFPR/CG/AP/Charizard.obj");
+    loadOBJModel("C:/Users/andre/Documents/UTFPR/CG/AP/UmbreonHighPoly.obj");
 }
 
 MainWindow::~MainWindow() {
@@ -67,8 +68,6 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
     }
 
     if (auto obj3D = dynamic_cast<Object3D*>(selected)) {
-        Point3D center3D(0, 0, 0); // você pode depois calcular o centro real do modelo se quiser
-
         switch (event->key()) {
         case Qt::Key_I: obj3D->rotateX3D(-10); break;  // Rotaciona para cima
         case Qt::Key_K: obj3D->rotateX3D(10);  break;  // Rotaciona para baixo
@@ -76,20 +75,23 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
         case Qt::Key_L: obj3D->rotateY3D(10);  break;  // Rotaciona para direita
         case Qt::Key_U: obj3D->rotateZ3D(-10); break;  // Roll antihorário
         case Qt::Key_O: obj3D->rotateZ3D(10);  break;  // Roll horário
-        case Qt::Key_Up: obj3D->translate3D(0, 10, 0); break;   // Move para cima
-        case Qt::Key_Down: obj3D->translate3D(0, -10, 0); break;  // Move para baixo
-        case Qt::Key_Left: obj3D->translate3D(-10, 0, 0); break;  // Esquerda
+        case Qt::Key_Up:    obj3D->translate3D(0, 10, 0); break;   // Move para cima
+        case Qt::Key_Down:  obj3D->translate3D(0, -10, 0); break;  // Move para baixo
+        case Qt::Key_Left:  obj3D->translate3D(-10, 0, 0); break;  // Esquerda
         case Qt::Key_Right: obj3D->translate3D(10, 0, 0); break;   // Direita
         case Qt::Key_Plus:
-            obj3D->scale3D(1.1, 1.1, 1.1, center3D);
+            obj3D->scale3D(1.1, 1.1, 1.1, obj3D->getCenter());
             break;
         case Qt::Key_Minus:
-            obj3D->scale3D(0.9, 0.9, 0.9, center3D);
+            obj3D->scale3D(0.9, 0.9, 0.9, obj3D->getCenter());
             break;
         }
     }
 
     auto& window = ui->frame->getWindow();
+
+    static bool perspectiveMode = true;
+
     switch (event->key()) {
     case Qt::Key_W:  window.translate(0, -10); break;
     case Qt::Key_S:  window.translate(0, 10);  break;
@@ -99,6 +101,11 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
     case Qt::Key_X:  window.zoom(1.1);         break;
     case Qt::Key_C:  window.rotate(-5);        break;
     case Qt::Key_V:  window.rotate(5);         break;
+    case Qt::Key_P:  // alterna projeção
+        perspectiveMode = !perspectiveMode;
+        ui->frame->setPerspectiveMode(perspectiveMode);
+        ui->frame->update();
+        break;
     default: break;
     }
 
