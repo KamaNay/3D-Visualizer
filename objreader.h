@@ -9,6 +9,8 @@
 class OBJReader {
 public:
     static Object3D* loadOBJ(const QString &filePath) {
+        static int modelIndex = 0;
+
         QFile file(filePath);
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
             return nullptr;
@@ -33,6 +35,11 @@ public:
                 obj->addFace(face);
             }
         }
+
+        obj->normalizeModel();
+        obj->translate3D(0, 0, -500); // joga para longe da câmera (que está no Z=0)
+        obj->translate3D(modelIndex * 300, 0, -500);
+        modelIndex++;
 
         return obj;
     }

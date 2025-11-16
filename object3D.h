@@ -100,6 +100,38 @@ public:
         }
     }
 
+    void normalizeModel() {
+        if (vertices.empty()) return;
+
+        double minX=1e9, minY=1e9, minZ=1e9;
+        double maxX=-1e9, maxY=-1e9, maxZ=-1e9;
+
+        for (auto &v : vertices) {
+            minX = std::min(minX, v.x);
+            minY = std::min(minY, v.y);
+            minZ = std::min(minZ, v.z);
+            maxX = std::max(maxX, v.x);
+            maxY = std::max(maxY, v.y);
+            maxZ = std::max(maxZ, v.z);
+        }
+
+        // centro do bounding box
+        double cx = (minX + maxX) / 2.0;
+        double cy = (minY + maxY) / 2.0;
+        double cz = (minZ + maxZ) / 2.0;
+
+        // maior dimensão para uniformizar
+        double size = std::max({maxX-minX, maxY-minY, maxZ-minZ});
+        double scale = 200.0 / size;  // 200 pixels de largura padrão
+
+        // aplica normalização
+        for (auto &v : vertices) {
+            v.x = (v.x - cx) * scale;
+            v.y = (v.y - cy) * scale;
+            v.z = (v.z - cz) * scale;
+        }
+    }
+
     // ---- Projeção ortogonal ----
     std::vector<std::vector<Point>> projectOrthographic() const {
         std::vector<std::vector<Point>> projected;
@@ -107,7 +139,7 @@ public:
             std::vector<Point> poly;
             for (int idx : face) {
                 const auto &v = vertices[idx - 1];
-                poly.push_back(Point(v.x, -v.y)); // invertido para coordenadas Qt
+                poly.push_back(Point(v.x, v.y)); // invertido para coordenadas Qt
             }
             projected.push_back(poly);
         }
@@ -130,7 +162,7 @@ public:
                 double xp = (v.x * d) / (d - zc);
                 double yp = (v.y * d) / (d - zc);
 
-                poly.push_back(Point(xp, -yp)); // inverte Y para coordenadas Qt
+                poly.push_back(Point(xp, yp)); // inverte Y para coordenadas Qt
             }
             projected.push_back(poly);
         }
