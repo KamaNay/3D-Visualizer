@@ -15,38 +15,33 @@ class Object3D : public Object {
 public:
     Object3D(QString name = "3DObject") : Object(name, POLYGON) {}
 
-    void draw(QPainter *painter) override {
-        Q_UNUSED(painter);
-    }
+    void draw(QPainter *painter) override { Q_UNUSED(painter); }
 
     void addVertex(double x, double y, double z) {
-        vertices.push_back(Point3D(x, y, z));
+        vertices.emplace_back(x, y, z);
     }
 
     void addFace(const std::vector<int>& face) {
         faces.push_back(face);
     }
 
-    // ---- Calcula o centro geométrico do objeto ----
-    Point3D getCenter() const {
-        double cx = 0, cy = 0, cz = 0;
-        for (auto &v : vertices) {
-            cx += v.x;
-            cy += v.y;
-            cz += v.z;
+    // retorna faces como listas de Point3D (sem projeção)
+    std::vector<std::vector<Point3D>> getFaces3D() const {
+        std::vector<std::vector<Point3D>> out;
+        for (const auto &face : faces) {
+            std::vector<Point3D> poly;
+            poly.reserve(face.size());
+            for (int idx : face) {
+                poly.push_back(vertices[idx - 1]);
+            }
+            out.push_back(std::move(poly));
         }
-        int n = vertices.size();
-        if (n == 0) return Point3D(0, 0, 0);
-        return Point3D(cx / n, cy / n, cz / n);
+        return out;
     }
 
-    // ---- Transformações ----
-    void translate3D(double dx, double dy, double dz) {
-        for (auto &v : vertices) {
-            v.x += dx;
-            v.y += dy;
-            v.z += dz;
-        }
+    // transformações 3D
+    void translate3D(double dx, double dy, double dz) override {
+        for (auto &v : vertices) { v.x += dx; v.y += dy; v.z += dz; }
     }
 
     void scale3D(double sx, double sy, double sz, const Point3D &center) {
@@ -57,74 +52,63 @@ public:
         }
     }
 
-    // ---- Rotaciona em torno do próprio centro ----
     void rotateX3D(double angle) {
-        Point3D center = getCenter();
-        double rad = angle * M_PI / 180.0;
-        double c = cos(rad), s = sin(rad);
+        Point3D c = getCenter();
+        double rad = angle * M_PI/180.0;
+        double co = cos(rad), si = sin(rad);
         for (auto &v : vertices) {
-            double y = v.y - center.y;
-            double z = v.z - center.z;
-            double newY = y * c - z * s;
-            double newZ = y * s + z * c;
-            v.y = center.y + newY;
-            v.z = center.z + newZ;
+            double y = v.y - c.y, z = v.z - c.z;
+            double ny = y * co - z * si;
+            double nz = y * si + z * co;
+            v.y = c.y + ny; v.z = c.z + nz;
         }
     }
-
     void rotateY3D(double angle) {
-        Point3D center = getCenter();
-        double rad = angle * M_PI / 180.0;
-        double c = cos(rad), s = sin(rad);
+        Point3D c = getCenter();
+        double rad = angle * M_PI/180.0;
+        double co = cos(rad), si = sin(rad);
         for (auto &v : vertices) {
-            double x = v.x - center.x;
-            double z = v.z - center.z;
-            double newX = x * c + z * s;
-            double newZ = -x * s + z * c;
-            v.x = center.x + newX;
-            v.z = center.z + newZ;
+            double x = v.x - c.x, z = v.z - c.z;
+            double nx = x * co + z * si;
+            double nz = -x * si + z * co;
+            v.x = c.x + nx; v.z = c.z + nz;
         }
     }
-
     void rotateZ3D(double angle) {
-        Point3D center = getCenter();
-        double rad = angle * M_PI / 180.0;
-        double c = cos(rad), s = sin(rad);
+        Point3D c = getCenter();
+        double rad = angle * M_PI/180.0;
+        double co = cos(rad), si = sin(rad);
         for (auto &v : vertices) {
-            double x = v.x - center.x;
-            double y = v.y - center.y;
-            double newX = x * c - y * s;
-            double newY = x * s + y * c;
-            v.x = center.x + newX;
-            v.y = center.y + newY;
+            double x = v.x - c.x, y = v.y - c.y;
+            double nx = x * co - y * si;
+            double ny = x * si + y * co;
+            v.x = c.x + nx; v.y = c.y + ny;
         }
     }
 
+    Point3D getCenter() const {
+        double cx=0, cy=0, cz=0;
+        if (vertices.empty()) return Point3D(0,0,0);
+        for (const auto &v : vertices) { cx += v.x; cy += v.y; cz += v.z; }
+        double n = (double)vertices.size();
+        return Point3D(cx/n, cy/n, cz/n);
+    }
+
+    // Normaliza (centraliza e escala para um tamanho padrão)
     void normalizeModel() {
         if (vertices.empty()) return;
-
         double minX=1e9, minY=1e9, minZ=1e9;
         double maxX=-1e9, maxY=-1e9, maxZ=-1e9;
-
         for (auto &v : vertices) {
-            minX = std::min(minX, v.x);
-            minY = std::min(minY, v.y);
-            minZ = std::min(minZ, v.z);
-            maxX = std::max(maxX, v.x);
-            maxY = std::max(maxY, v.y);
-            maxZ = std::max(maxZ, v.z);
+            minX = std::min(minX, v.x); minY = std::min(minY, v.y); minZ = std::min(minZ, v.z);
+            maxX = std::max(maxX, v.x); maxY = std::max(maxY, v.y); maxZ = std::max(maxZ, v.z);
         }
-
-        // centro do bounding box
         double cx = (minX + maxX) / 2.0;
         double cy = (minY + maxY) / 2.0;
         double cz = (minZ + maxZ) / 2.0;
-
-        // maior dimensão para uniformizar
         double size = std::max({maxX-minX, maxY-minY, maxZ-minZ});
-        double scale = 200.0 / size;  // 200 pixels de largura padrão
-
-        // aplica normalização
+        if (size <= 0.0) size = 1.0;
+        double scale = 200.0 / size; // heurística (ajuste se quiser)
         for (auto &v : vertices) {
             v.x = (v.x - cx) * scale;
             v.y = (v.y - cy) * scale;
@@ -132,41 +116,16 @@ public:
         }
     }
 
-    // ---- Projeção ortogonal ----
-    std::vector<std::vector<Point>> projectOrthographic() const {
-        std::vector<std::vector<Point>> projected;
-        for (auto &face : faces) {
-            std::vector<Point> poly;
-            for (int idx : face) {
-                const auto &v = vertices[idx - 1];
-                poly.push_back(Point(v.x, v.y)); // invertido para coordenadas Qt
-            }
-            projected.push_back(poly);
+    double computeDepth(const Window &window) const override {
+        double avgZ = 0.0;
+        int count = 0;
+        for (const auto &v : vertices) {
+            double tx = v.x, ty = v.y, tz = v.z;
+            ((Window&)window).applyCameraTransformTemp(tx, ty, tz);
+            avgZ += tz;
+            ++count;
         }
-        return projected;
-    }
-
-    // ---- Projeção perspectiva ----
-    std::vector<std::vector<Point>> projectPerspective(double d = 500.0) const {
-        std::vector<std::vector<Point>> projected;
-
-        for (auto &face : faces) {
-            std::vector<Point> poly;
-            for (int idx : face) {
-                const auto &v = vertices[idx - 1];
-
-                // Evita divisão por zero (ponto atrás da câmera)
-                double zc = (v.z == 0) ? 0.0001 : v.z;
-
-                // Projeção perspectiva simples (câmera em Z = 0 olhando para -Z)
-                double xp = (v.x * d) / (d - zc);
-                double yp = (v.y * d) / (d - zc);
-
-                poly.push_back(Point(xp, yp)); // inverte Y para coordenadas Qt
-            }
-            projected.push_back(poly);
-        }
-        return projected;
+        return (count > 0) ? (avgZ / count) : 1e9;
     }
 
 private:

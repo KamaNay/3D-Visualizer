@@ -5,8 +5,18 @@
 #include "object3D.h"
 #include <cmath>
 #include <QSizePolicy>
+#include <QPainter>
+#include <algorithm>
 
-// ---- Cohen–Sutherland ----
+/*
+ * Implementação do MyFrame:
+ * - Define a viewport com margens
+ * - Ordena objetos por profundidade média usando Painter's Algorithm
+ * - Projeta cada vértice via Window::worldToNormalized e Viewport::normalizedToViewport
+ * - Desenha faces (Object3D) e polígonos (objetos 2D como House)
+ */
+
+// ---- Cohen–Sutherland (para SCN clipping em 2D) ----
 enum OutCode { INSIDE = 0, LEFT = 1, RIGHT = 2, BOTTOM = 4, TOP = 8 };
 
 static int computeOutCode(double x, double y, double xmin, double xmax, double ymin, double ymax) {
@@ -95,24 +105,46 @@ void MyFrame::paintEvent(QPaintEvent *) {
     painter.save();
     painter.setClipRect(vLeft, vTop, vWidth, vHeight);
 
-    for (auto obj : df.getObjects()) {
+    // -----------------------------
+    // Painter's algorithm: ordenar objetos por profundidade média (camera space Z)
+    // -----------------------------
+    auto objs = df.getObjects();
 
-        auto obj3D = dynamic_cast<Object3D*>(obj);
-        if (obj3D) {
-            auto polys = perspectiveMode
-                             ? obj3D->projectPerspective(600.0)
-                             : obj3D->projectOrthographic();
+    std::sort(objs.begin(), objs.end(),
+              [&](Object* a, Object* b) {
+                  double da = a->computeDepth(*window);
+                  double db = b->computeDepth(*window);
+                  return da > db;
+              }
+              );
+
+    // -----------------------------
+    // Desenha objetos na ordem ordenada
+    // -----------------------------
+    for (auto obj : objs) {
+
+        // ---------------- Object3D ----------------
+        if (auto obj3D = dynamic_cast<Object3D*>(obj)) {
+            auto faces3D = obj3D->getFaces3D();
 
             QColor edgeColor = obj->isSelected() ? Qt::blue : Qt::darkGray;
             QColor fillColor = obj->isSelected() ? QColor(173, 216, 230, 100) : QColor(200, 200, 200, 80);
 
-            for (auto &polyPts : polys) {
+            for (const auto &face : faces3D) {
                 QPolygonF poly;
-                for (auto &p : polyPts) {
-                    Point pn = window->worldToNormalized(p);
+                bool anyVisible = false;
+
+                for (const auto &v3 : face) {
+                    Point pn = window->worldToNormalized(v3.x, v3.y, v3.z);
+
+                    if (pn.getX() >= -1.5 && pn.getX() <= 1.5 && pn.getY() >= -1.5 && pn.getY() <= 1.5)
+                        anyVisible = true;
+
                     Point pv = viewport->normalizedToViewport(pn);
                     poly << QPointF(pv.getX(), pv.getY());
                 }
+
+                if (!anyVisible) continue;
 
                 painter.setPen(QPen(edgeColor, obj->isSelected() ? 2 : 1));
                 painter.setBrush(fillColor);
@@ -121,16 +153,14 @@ void MyFrame::paintEvent(QPaintEvent *) {
             continue;
         }
 
-        auto house = dynamic_cast<House*>(obj);
-        if (house) {
+        if (auto house = dynamic_cast<House*>(obj)) {
             auto pts = house->getPoints();
-            if (pts.size() < 5) continue;
+            if (pts.size() < 3) continue;
 
-            // Converte pontos da casa (transformados) para viewport
             QPolygonF poly;
             bool anyInside = false;
             for (auto &p : pts) {
-                Point pn = window->worldToNormalized(p);
+                Point pn = window->worldToNormalized(p.getX(), p.getY(), obj->getZ());
                 if (pn.getX() >= -1.0 && pn.getX() <= 1.0 && pn.getY() >= -1.0 && pn.getY() <= 1.0)
                     anyInside = true;
                 Point pv = viewport->normalizedToViewport(pn);
@@ -142,43 +172,35 @@ void MyFrame::paintEvent(QPaintEvent *) {
             painter.setBrush(Qt::lightGray);
             painter.drawPolygon(poly);
 
-            // --- desenha porta e janelas rotacionadas ---
-            // base da casa = pts[0] (bottom-left original) e pts[4] (bottom-right original)
             Point baseL = pts[0], baseR = pts[4];
             double cxWorld = (baseL.getX() + baseR.getX()) / 2.0;
             double cyBase = (baseL.getY() + baseR.getY()) / 2.0;
             double dx = baseR.getX() - baseL.getX();
             double dy = baseR.getY() - baseL.getY();
-            double angle = atan2(dy, dx); // orientação da base
+            double angle = atan2(dy, dx);
             double widthWorld = std::hypot(dx, dy);
-
             double bodyHWorld = std::hypot(pts[1].getX() - pts[0].getX(), pts[1].getY() - pts[0].getY());
-
-            // Unidade de direção: along base e perpendicular (up)
             double cosA = cos(angle);
             double sinA = sin(angle);
-            double perpX = -sinA;  // Perpendicular "up" (sentido anti-horário relativo à base)
+            double perpX = -sinA;
             double perpY = cosA;
 
             auto drawRotRectWorld = [&](double cxW, double cyW, double wW, double hW, const QColor &col){
                 double cosA = cos(angle), sinA = sin(angle);
-                // vértices locais (em coordenadas do mundo) do retângulo (em ordem)
                 std::vector<Point> vworld;
                 vworld.push_back(Point(cxW - wW/2, cyW));
                 vworld.push_back(Point(cxW - wW/2, cyW + hW));
                 vworld.push_back(Point(cxW + wW/2, cyW + hW));
                 vworld.push_back(Point(cxW + wW/2, cyW));
-                // rotaciona em torno do centro (cxW, cyW)
                 QPolygonF polyR;
                 for (auto &lp : vworld) {
-                    // translate para centro, rotaciona, volta (usamos formula direta)
                     double lx = lp.getX() - cxW;
                     double ly = lp.getY() - cyW;
                     double rx = lx * cosA - ly * sinA;
                     double ry = lx * sinA + ly * cosA;
                     double xw = cxW + rx;
                     double yw = cyW + ry;
-                    Point pn = window->worldToNormalized(Point(xw, yw));
+                    Point pn = window->worldToNormalized(Point(xw, yw), obj->getZ());
                     Point pv = viewport->normalizedToViewport(pn);
                     polyR << QPointF(pv.getX(), pv.getY());
                 }
@@ -186,33 +208,28 @@ void MyFrame::paintEvent(QPaintEvent *) {
                 painter.drawPolygon(polyR);
             };
 
-            // Função auxiliar para calcular cxW e cyW com offsets locais
             auto calcAnchor = [&](double offset_along, double offset_up) -> std::pair<double, double> {
                 double cxW = cxWorld + offset_along * cosA + offset_up * perpX;
                 double cyW = cyBase + offset_along * sinA + offset_up * perpY;
                 return {cxW, cyW};
             };
 
-            // Porta (centro na base, sobe do chão: offset_along=0, offset_up=0 para bottom)
             auto [cxDoor, cyDoor] = calcAnchor(0.0, 0.0);
             drawRotRectWorld(cxDoor, cyDoor, widthWorld * 0.2, bodyHWorld * 0.36, Qt::darkGray);
 
-            // Janela esquerda (offset ao longo da base -0.3, up 0.3*bodyH para bottom da janela)
             auto [cxWinLeft, cyWinLeft] = calcAnchor(-widthWorld * 0.3, bodyHWorld * 0.3);
             drawRotRectWorld(cxWinLeft, cyWinLeft, widthWorld * 0.2, bodyHWorld * 0.2, Qt::cyan);
 
-            // Janela direita (offset ao longo da base +0.3, up 0.3*bodyH para bottom da janela)
             auto [cxWinRight, cyWinRight] = calcAnchor(widthWorld * 0.3, bodyHWorld * 0.3);
             drawRotRectWorld(cxWinRight, cyWinRight, widthWorld * 0.2, bodyHWorld * 0.2, Qt::cyan);
 
             continue;
         }
 
-        // demais objetos (mantém seu código original)
         auto pts = obj->getPoints();
         if (obj->getType() == LINE) {
-            Point pn1 = window->worldToNormalized(pts[0]);
-            Point pn2 = window->worldToNormalized(pts[1]);
+            Point pn1 = window->worldToNormalized(pts[0].getX(), pts[0].getY(), obj->getZ());
+            Point pn2 = window->worldToNormalized(pts[1].getX(), pts[1].getY(), obj->getZ());
             if (!clipLineCohenSutherland(pn1, pn2, -1.0, 1.0, -1.0, 1.0)) continue;
             Point pv1 = viewport->normalizedToViewport(pn1);
             Point pv2 = viewport->normalizedToViewport(pn2);
@@ -223,7 +240,7 @@ void MyFrame::paintEvent(QPaintEvent *) {
             QPolygon poly;
             bool anyInside = false;
             for (auto &p : pts) {
-                Point pn = window->worldToNormalized(p);
+                Point pn = window->worldToNormalized(p.getX(), p.getY(), obj->getZ());
                 if (pn.getX() >= -1.0 && pn.getX() <= 1.0 && pn.getY() >= -1.0 && pn.getY() <= 1.0)
                     anyInside = true;
                 Point pv = viewport->normalizedToViewport(pn);
@@ -234,7 +251,7 @@ void MyFrame::paintEvent(QPaintEvent *) {
             painter.drawPolygon(poly);
         }
         else if (obj->getType() == POINT) {
-            Point pn = window->worldToNormalized(pts[0]);
+            Point pn = window->worldToNormalized(pts[0].getX(), pts[0].getY(), obj->getZ());
             if (pn.getX() < -1.0 || pn.getX() > 1.0 || pn.getY() < -1.0 || pn.getY() > 1.0) continue;
             Point pv = viewport->normalizedToViewport(pn);
             painter.setPen(obj->isSelected() ? QPen(Qt::blue,3) : QPen(Qt::red,2));
@@ -243,17 +260,17 @@ void MyFrame::paintEvent(QPaintEvent *) {
     }
 
     painter.restore();
+
+    // desenha a borda da viewport
     painter.setPen(QPen(Qt::black,1,Qt::DashLine));
     painter.drawRect(vLeft, vTop, vWidth, vHeight);
-
 }
 
-// ---- Mouse Selection ----
+// ---- Seleção do Mouse ----
 void MyFrame::mousePressEvent(QMouseEvent *event) {
     QPoint click = event->pos();
     const int tol = 5;
 
-    // Converte clique para coordenadas normalizadas e depois mundo
     double nx = (double)(click.x() - viewport->getXMin()) /
                     (viewport->getXMax() - viewport->getXMin()) * 2.0 - 1.0;
     double ny = 1.0 - (double)(click.y() - viewport->getYMin()) /
@@ -266,16 +283,13 @@ void MyFrame::mousePressEvent(QMouseEvent *event) {
     for (auto obj : df.getObjects()) {
         bool selected = false;
 
-        // --- Caso Object3D ---
         if (auto obj3D = dynamic_cast<Object3D*>(obj)) {
-            auto projected = obj3D->projectOrthographic();
-            for (auto &face : projected) {
+            auto faces = obj3D->getFaces3D();
+            for (auto &face : faces) {
                 QPolygonF poly;
-                for (auto &p : face) {
-                    // converte ponto do modelo para coordenadas do window
-                    Point pn = window->worldToNormalized(p);
+                for (auto &v3 : face) {
+                    Point pn = window->worldToNormalized(v3.x, v3.y, v3.z);
                     Point pv = viewport->normalizedToViewport(pn);
-                    // reconverte viewport -> mundo (igual ao cliqueWorld)
                     double nxx = (pv.getX() - viewport->getXMin()) /
                                      (viewport->getXMax() - viewport->getXMin()) * 2.0 - 1.0;
                     double nyy = 1.0 - (pv.getY() - viewport->getYMin()) /
@@ -286,15 +300,9 @@ void MyFrame::mousePressEvent(QMouseEvent *event) {
                                                          (window->getYMax() - window->getYMin());
                     poly << QPointF(wxp, wyp);
                 }
-                if (poly.containsPoint(clickWorld, Qt::OddEvenFill)) {
-                    selected = true;
-                    break;
-                }
+                if (poly.containsPoint(clickWorld, Qt::OddEvenFill)) { selected = true; break; }
             }
-        }
-
-        // --- Caso 2D padrão ---
-        else {
+        } else {
             auto pts = obj->getPoints();
             if (obj->getType() == POINT) {
                 Point p = pts[0];
@@ -331,7 +339,6 @@ void MyFrame::mousePressEvent(QMouseEvent *event) {
             }
         }
 
-        // Seleciona o objeto e desmarca os outros
         if (selected) {
             for (auto o : df.getObjects()) o->setSelected(false);
             obj->setSelected(true);
@@ -341,4 +348,3 @@ void MyFrame::mousePressEvent(QMouseEvent *event) {
 
     update();
 }
-

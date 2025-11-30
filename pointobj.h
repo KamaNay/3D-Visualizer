@@ -15,4 +15,4 @@ public:
     }
 };
 
-#endif // POINTOBJ_H
+#endif

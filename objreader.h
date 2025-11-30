@@ -6,6 +6,12 @@
 #include <QTextStream>
 #include <QStringList>
 
+/*
+ * Leitor OBJ simples:
+ * - Lê vértices e faces básicos (v, f)
+ * - Normaliza a malha e desloca cada modelo para não sobrepor
+*/
+
 class OBJReader {
 public:
     static Object3D* loadOBJ(const QString &filePath) {
@@ -25,8 +31,7 @@ public:
             QStringList parts = line.split(" ", Qt::SkipEmptyParts);
             if (parts[0] == "v" && parts.size() >= 4) {
                 obj->addVertex(parts[1].toDouble(), parts[2].toDouble(), parts[3].toDouble());
-            }
-            else if (parts[0] == "f" && parts.size() >= 4) {
+            } else if (parts[0] == "f" && parts.size() >= 4) {
                 std::vector<int> face;
                 for (int i = 1; i < parts.size(); ++i) {
                     QString vertexStr = parts[i].split("/")[0];
@@ -37,12 +42,12 @@ public:
         }
 
         obj->normalizeModel();
-        obj->translate3D(0, 0, -500); // joga para longe da câmera (que está no Z=0)
-        obj->translate3D(modelIndex * 300, 0, -500);
+        // posiciona na cena: lado a lado e afastado (ajuste -Z conforme sua câmera)
+        obj->translate3D(modelIndex * 300.0, 0.0, -500.0);
         modelIndex++;
 
         return obj;
     }
 };
 
-#endif // OBJREADER_H
+#endif
